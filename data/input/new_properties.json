@@ -1,0 +1,26 @@
+[
+  {
+    "property_type": "HOUSE",
+    "property_id": 12345, 
+    "postcode": 6183,
+    "city": "Trazegnies",
+    "province": "Hainaut",
+    "address": "Place Florian Delbruyère 8",
+    "latitude": 50.485,
+    "longitude": 4.356,
+    "property_state": "GOOD",
+    "build_year": 1862,
+    "bedroom_count": 3,
+    "livable_surface": 154,
+    "total_surface": 138,
+    "garage": 0,
+    "terrace": 1,
+    "energy_consumption_kWh/m2/year": 279,
+    "swimming_pool": 0,
+    "preschool_distance_m": 312,
+    "train_station_distance_m": 1200,
+    "supermarket_distance_m": 700,
+    "nearest_city": "Charleroi",
+    "nearest_city_distance_km": 8.0
+  }
+]
