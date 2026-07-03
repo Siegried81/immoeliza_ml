@@ -695,24 +695,6 @@ Using this modular workflow makes the project reproducible, maintainable, and ea
 
 ---
 
-# Future Improvements
-
-Although the final XGBoost model achieved excellent performance, several improvements could further increase its predictive accuracy:
-
-- Evaluate the models using **K-Fold Cross-Validation** instead of a single train/test split.
-- Engineer additional features, such as:
-  - Property age
-  - Price per square meter
-  - Distance to major cities
-  - Neighborhood characteristics
-- Test additional ensemble models such as **LightGBM** or **CatBoost**.
-- Improve model interpretability using **SHAP** feature importance analysis.
-- Deploy the model as a REST API or integrate it into a web application for real-time predictions.
-
-These enhancements could improve both prediction accuracy and usability in a production environment.
-
----
-
 # Key Takeaways
 
 Throughout this project, several important machine learning concepts were applied:
