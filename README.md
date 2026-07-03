@@ -113,7 +113,7 @@ The project follows a modular structure to improve readability, maintainability,
 
 - **analysis/** contains exploratory notebook and model experiments.
 - **data/** contains the raw and cleaned datasets.
-- **images/** stores figures used in this README and during model evaluation.
+- **images/** stores figures used during model evaluation.
 - **models/** stores the trained machine learning models and preprocessing pipeline.
 - **src/** contains the project's Python modules, including preprocessing, training, evaluation, and prediction scripts.
 
