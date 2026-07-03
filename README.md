@@ -56,7 +56,7 @@ Before training the models, the dataset was cleaned and preprocessed to improve 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/immo-eliza-ml.git
+git clone https://github.com/Siegried81/immo-eliza-ml.git
 cd immo-eliza-ml
 ```
 
