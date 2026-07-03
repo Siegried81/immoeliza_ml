@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.venv/
+
+# Environment / OS
+.vscode/
+.DS_Store
+
+# Data
+data/raw/*
+!data/raw/.gitkeep
+data/cleaned/*
+!data/cleaned/.gitkeep
+
+# Models
+models/*.joblib
+
+# Jupyter
+.ipynb_checkpoints/
