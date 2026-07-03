@@ -88,22 +88,15 @@ pip install -r requirements.txt
 
 ```text
 immo-eliza-ml/
-│
+├── analysis/
+│   └── notebook_sieg.ipynb
 ├── data/
-│   ├── raw/                  # Original dataset
-│   └── cleaned/              # Cleaned dataset used for training
-│
-├── images/                   # Saved plots and visualizations
-│
-├── models/                   # Trained models (.joblib)
+│   ├── raw/
+│   └── cleaned/
+├── images/
+├── models/
 │   ├── linear_regression.joblib
-│   ├── random_forest.joblib
-│   ├── xgboost.joblib
-│   └── preprocessing_pipeline.joblib
-│
-├── notebooks/
-│   └── notebook.ipynb        # Experiments and model comparison
-│
+│   └── ...
 ├── src/
 │   ├── clean_data.py
 │   ├── preprocess.py
@@ -111,8 +104,7 @@ immo-eliza-ml/
 │   ├── evaluate.py
 │   ├── predict.py
 │   └── utils.py
-│
-├── README.md
+├── main.py
 ├── requirements.txt
 └── .gitignore
 ```
