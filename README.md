@@ -637,6 +637,7 @@ print(f"Estimated price: €{prediction[0]:,.0f}")
 ```
 
 This demonstrates how the trained model can easily be reused to estimate the value of new Belgian properties.
+I've tried with a real propertiy, I've a result of ~222k€ and on the site it is 199k€.
 
 ---
 
@@ -720,7 +721,7 @@ Several regression algorithms were trained and compared, including **Linear Regr
 
 The results clearly show that **tree-based ensemble methods** outperform traditional linear models on structured real estate data. Their ability to model complex, non-linear relationships between property characteristics leads to significantly better predictions.
 
-Among the tested algorithms, **XGBoost** was selected as the final model. While Random Forest achieved a slightly higher R² score on this dataset, XGBoost offers a better balance between predictive performance, robustness, scalability, and resistance to overfitting. Its sequential boosting strategy and built-in regularization make it one of the most reliable algorithms for tabular machine learning problems.
+Among the tested algorithms, XGBoost was selected as the final model. It demonstrated superior performance across all evaluation metrics, achieving the highest R² score (0.78) and the lowest error rates (RMSE: ~75.7k€, MAE: ~51.2€). Beyond these metrics, XGBoost offers an ideal balance of robustness, scalability, and resistance to overfitting, making it the most reliable solution for this tabular dataset compared to the other architectures tested.
 
 This project also highlights the importance of reproducible preprocessing, modular code organization, and rigorous model evaluation. By combining Scikit-Learn Pipelines with modern ensemble learning techniques, the resulting workflow is accurate, reusable, and aligned with industry best practices.
 
