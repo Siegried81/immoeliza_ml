@@ -87,24 +87,33 @@ pip install -r requirements.txt
 ## Project Structure
 
 ```text
-immo-eliza-ml/
-├── analysis/
-│   └── notebook_sieg.ipynb
-├── data/
-│   ├── raw/
-│   └── cleaned/
-├── images/
-├── models/
-│   ├── linear_regression.joblib
-│   └── ...
+immoeliza_ml/
+├── analysis/                           # exploratory notebooks
+├── data/                               # not versioned, see .gitignore
+│   ├── raw/dataframe.json              # output of the scraping project
+│   ├── clean/cleaned_data.json         # produced by src/cleaning.py
+│   ├── input/new_properties.json       # properties to predict
+│   └── output/predictions.json         # produced by src/predict.py
+├── images/                             # not versioned: plots from the models
+├── models/                             # one script per algorithm (.joblib files not versioned)
+│   ├── linear_regression.py
+│   ├── Random_Forest.py
+│   ├── linear_svr.py                   # same code as linear_SVM.py
+│   ├── non_linear_svr.py
+│   ├── XGBoost.py
+│   ├── tuning_XGBoost.py
+│   └── cross_validation_kNN_XGBoost.py
 ├── src/
-│   ├── clean_data.py
-│   ├── preprocess.py
-│   ├── train.py
-│   ├── evaluate.py
-│   ├── predict.py
-│   └── utils.py
-├── main.py
+│   ├── cleaning.py                     # raw JSON -> cleaned_data.json
+│   ├── preprocessing.py                # the shared ColumnTransformer
+│   ├── train.py                        # final XGBoost pipeline -> best_xgboost.joblib
+│   ├── predict.py                      # best_xgboost.joblib -> predictions.json
+│   ├── heatmap.py                      # correlation heatmap
+│   ├── plot_missing.py                 # missing-value bar chart
+│   └── overfitting_XGBoost.py          # train/test gap diagnostic
+├── tests/
+│   └── test_preprocessing.py
+├── main.py                             # menu that runs one model pipeline
 ├── requirements.txt
 └── .gitignore
 ```
@@ -112,12 +121,41 @@ immo-eliza-ml/
 The project follows a modular structure to improve readability, maintainability, and reproducibility.
 
 - **analysis/** contains exploratory notebook and model experiments.
-- **data/** contains the raw and cleaned datasets.
-- **images/** stores figures used during model evaluation.
-- **models/** stores the trained machine learning models and preprocessing pipeline.
+- **data/** contains the raw and cleaned datasets. It is not versioned: copy the scraping project's `dataframe.json` into `data/raw/` and run `python src/cleaning.py`.
+- **images/** stores figures used during model evaluation. Not versioned.
+- **models/** holds one script per algorithm. The trained `.joblib` files it also receives are not versioned, because they are large, binary and tied to the installed library versions.
 - **src/** contains the project's Python modules, including preprocessing, training, evaluation, and prediction scripts.
 
+Every module derives its paths from `Path(__file__)`, so the scripts run from
+any working directory and from any clone of the repository.
+
 Keeping preprocessing, training, evaluation, and prediction in separate modules makes the workflow easier to understand, test, and reuse.
+
+### Running it
+
+```bash
+python src/cleaning.py        # data/raw/dataframe.json -> data/clean/cleaned_data.json
+python src/train.py           # trains the final pipeline -> models/best_xgboost.joblib
+python src/predict.py         # data/input/new_properties.json -> data/output/predictions.json
+python main.py                # menu: pick one algorithm to train and plot
+```
+
+`main.py` prints a menu and runs the chosen pipeline. Each pipeline loads the
+cleaned dataset and builds the preprocessing its own feature selection needs,
+so the menu passes nothing to it. Failures are not caught: a broken pipeline
+shows its traceback instead of a one-line message.
+
+### Tests
+
+```bash
+pip install pytest
+pytest
+```
+
+Expected: `25 passed`. The suite uses small in-memory frames only, so it needs
+no dataset, no network, and trains nothing. It covers `get_preprocessor`,
+`remove_highly_correlated_features`, the absence of absolute path literals in
+every module, and the metric scale described below.
 
 # Data Preparation & Preprocessing
 
@@ -218,6 +256,23 @@ Rather than removing it immediately, it was kept for the machine learning models
 ## Why No Features Were Removed
 
 Since no pair of variables showed excessive multicollinearity, all available predictors were retained, except the address (useless) and the build year (43.4% of missing values).
+
+An earlier `run_preprocessing()` in `src/preprocessing.py` wrote a
+`final_processed_data.csv` by keeping the columns whose correlation with
+`price` was at least 0.05. That step was removed, for two reasons:
+
+- It was **selection leakage**: the correlation was measured on the whole
+  dataset, test rows included, so the choice of features already knew the
+  answers it was going to be scored on.
+- It scaled `price` **as if it were a feature**, which puts the target inside
+  the design matrix.
+
+Nothing read the file (`src/train.py` loads `cleaned_data.json` directly), so
+removing it loses no step of the pipeline and takes away the trap. Feature
+selection, if it comes back, belongs inside the Pipeline so it is fitted on the
+training split only — which is what `get_preprocessor()` is for.
+`remove_highly_correlated_features()` is kept: it compares features with each
+other and never with the target, so it does not leak.
 
 Keeping more features allows ensemble methods such as **Random Forest** and **XGBoost** to automatically determine which variables are the most informative during training.
 
@@ -387,9 +442,9 @@ Linear Regression cannot capture these non-linear relationships, making it less 
 
 | Metric |       Value |
 | ------ | ----------: |
-| R²     |    **0.41** |
-| RMSE   | **≈ €303k** |
-| MAE    | **≈ €161k** |
+| R²     |  **0.4404** |
+| RMSE   | **€290,384** |
+| MAE    | **€159,358** |
 
 Although it provides a reasonable starting point, the model struggles to explain price variations and is highly sensitive to outliers.
 
@@ -410,11 +465,12 @@ Random Forest is an ensemble learning algorithm that builds multiple decision tr
 
 | Metric |        Value |
 | ------ | -----------: |
-| R²     |     **0.73** |
-| RMSE   | **≈ €82.5k** |
-| MAE    | **≈ €55.7k** |
+| R²     |   **0.7283** |
+| RMSE   | **€202,930** |
+| MAE    |  **€89,471** |
 
-Random Forest shows strong predictive power and serves as a solid benchmark model.
+Random Forest shows strong predictive power and serves as a solid benchmark
+model, though XGBoost beats it on every metric here.
 
 ---
 
@@ -424,9 +480,9 @@ Random Forest shows strong predictive power and serves as a solid benchmark mode
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |    **-54.57** |
-| RMSE   |  **≈ €1.19M** |
-| MAE    | **≈ €104.3k** |
+| R²     |  **−83.1243** |
+| RMSE   | **€3,570,956** |
+| MAE    |   **€193,492** |
 
 The model failed to converge properly and performed very poorly, indicating misconfiguration and incompatibility with the dataset.
 
@@ -436,11 +492,13 @@ The model failed to converge properly and performed very poorly, indicating misc
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |      **0.60** |
-| RMSE   | **≈ €101.6k** |
-| MAE    |  **≈ €74.0k** |
+| R²     |    **0.4456** |
+| RMSE   |   **€289,885** |
+| MAE    |   **€128,259** |
 
-Despite dimensionality reduction (SVD) and tuning, the model remains weaker than tree-based approaches.
+Despite dimensionality reduction (SVD) and tuning, the model remains far weaker
+than tree-based approaches - and, once the price-derived column is dropped, no
+better than plain Linear Regression (0.4456 against 0.4404).
 
 ---
 
@@ -459,8 +517,8 @@ Best configuration:
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |    **0.5743** |
-| RMSE   | **≈ €89,235** |
+| R²     |    **0.6546** |
+| RMSE   |   **€228,816** |
 
 Although functional, kNN struggles with high-dimensional, non-linear relationships typical of real estate pricing.
 
@@ -500,26 +558,66 @@ This tuned version represents one of the strongest configurations obtained durin
 
 When evaluated through the full preprocessing + training pipeline:
 
+Measured on the 3,150 held-out rows (20% split, `random_state=42`), mean price
+€410,285. Every figure is on the euro scale:
+
 | Metric |          Value |
 | ------ | -------------: |
-| R²     |     **0.7663** |
-| RMSE   | **≈ €188,211** |
-| MAE    |  **≈ €90,737** |
+| R²     |     **0.7650** |
+| RMSE   | **≈ €188,753** |
+| MAE    |  **≈ €85,768** |
+| MAPE   |     **20.90 %** |
+| median APE | **15.10 %** |
 
-The difference between tuned evaluation and pipeline evaluation is expected due to full preprocessing effects and real training conditions.
+`train.py` also prints **R² 0.8332 on the `log1p` scale**. That one is a
+diagnostic, not a headline: the model optimises log price, and `log1p`
+compresses the expensive tail where this model makes its largest errors, so
+less variance is left to explain and the figure flatters the fit. It must never
+sit in a table beside a euro MAE and RMSE.
+
+> Measuring this settled a question this README used to leave open. The 0.7663
+> printed before was assumed to be the log-scale number and expected to drop
+> once measured in euros; it did not. The euro R² is 0.7650 — the same figure
+> within run-to-run noise — and it is the LOG scale that is higher, at 0.8332.
+> So the old R² was already comparable with the MAE and RMSE beside it.
+
+**Read MAPE with its median.** 20.90% is pulled up by the cheap end of the
+market: a €30k error is 30% of a €100k flat and 3% of a €1M villa. The median
+absolute percentage error, 15.10%, is what a typical listing sees. 36.1% of
+held-out properties are predicted within 10% of their price, and 62.9% within
+20%.
 
 ---
 
 ## Model Comparison
 
-| Model             |         R² |       RMSE |         MAE | Conclusion                |
-| ----------------- | ---------: | ---------: | ----------: | ------------------------- |
-| Linear Regression |       0.41 |     ~€303k |      ~€161k | Weak baseline             |
-| Random Forest     |       0.73 |    ~€82.5k |     ~€55.7k | Strong benchmark          |
-| Linear SVR        |     -54.57 |    ~€1.19M |    ~€104.3k | Failed                    |
-| Non-Linear SVR    |       0.60 |   ~€101.6k |       ~€74k | Moderate                  |
-| kNN               |       0.57 |      ~€89k |           — | Weak                      |
-| XGBoost           | **0.7663** | **~€188k** | **~€90.7k** | Best final pipeline model |
+| Model                                      |         R² |        RMSE |        MAE | Conclusion                |
+| ------------------------------------------ | ---------: | ----------: | ---------: | ------------------------- |
+| Linear Regression                          |     0.4404 |    €290,384 |   €159,358 | Weak baseline             |
+| Non-Linear SVR (RBF)                       |     0.4456 |    €289,885 |   €128,259 | No better than linear     |
+| kNN (`cross_validation_kNN_XGBoost.py`)    |     0.6546 |    €228,816 |          — | Weak                      |
+| Random Forest                              |     0.7283 |    €202,930 |    €89,471 | Strong benchmark          |
+| XGBoost (`src/train.py` pipeline)          |     0.7650 |    €188,753 |    €85,768 | Best MAE                  |
+| XGBoost (`models/XGBoost.py`)              |     0.7835 |    €181,141 |    €86,440 | Same model, fewer columns |
+| XGBoost tuned (`models/tuning_XGBoost.py`) | **0.7908** | **€178,057** |   €89,256 | Best final model          |
+| Linear SVR                                 |   −83.1243 |  €3,570,956 |   €193,492 | Failed to converge        |
+
+Every row comes from one run of that script on `data/clean/cleaned_data.json`
+(15,746 rows, the same 80/20 split, 3,150 held-out rows), with `price_per_m2`
+dropped everywhere. So the table compares models, not preprocessing: R², RMSE and
+MAE are all on the euro scale and all rank the same way.
+
+Read RMSE and MAE together. XGBoost tuned wins on R² and RMSE but has a *worse*
+MAE than the plain pipeline (€89,256 vs €85,768): tuning bought accuracy on the
+expensive properties that dominate the squared error, and paid for it on the
+typical listing. `src/train.py` is the better choice if the median property
+matters more than the tail.
+
+> An earlier version of this table reported much smaller errors for Random
+> Forest (~€82.5k RMSE), SVR (~€101.6k) and kNN (~€89k) alongside a similar R².
+> Those pairs are not mathematically consistent with each other on one dataset,
+> and they do not reproduce: they were measured on a different, smaller extract.
+> The figures above replace them.
 
 ---
 
@@ -581,14 +679,21 @@ Overall, the tree-based models demonstrated excellent generalization and signifi
 
 Once each model was trained and evaluated, it was saved using **Joblib**. Saving trained models avoids retraining them every time a prediction is needed and makes the project reusable in a production environment.
 
-The following artifacts are stored in the `models/` directory:
+The following artifacts are written to the `models/` directory when the
+corresponding script is run:
 
 - `linear_regression.joblib`
 - `random_forest.joblib`
 - `xgboost.joblib`
-- `preprocessing_pipeline.joblib`
+- `linear_svr.joblib`
+- `non_linear_svr.joblib`
+- `best_knn.joblib`
+- `best_xgboost.joblib` (the final pipeline, from `src/train.py`)
 
-Saving both the trained model and the preprocessing pipeline guarantees that any new data will undergo exactly the same transformations as the training data.
+Each file holds a full scikit-learn `Pipeline`, preprocessing included, so new
+data goes through exactly the same transformations as the training data. There
+is no separate `preprocessing_pipeline.joblib`. These files are not versioned
+(see `.gitignore`): re-run the script that produces the one you need.
 
 Example:
 
@@ -721,7 +826,44 @@ Several regression algorithms were trained and compared, including **Linear Regr
 
 The results clearly show that **tree-based ensemble methods** outperform traditional linear models on structured real estate data. Their ability to model complex, non-linear relationships between property characteristics leads to significantly better predictions.
 
-Among the tested algorithms, XGBoost was selected as the final model. It demonstrated superior performance across all evaluation metrics, achieving the highest R² score (0.78) and the lowest error rates (RMSE: ~75.7k€, MAE: ~51.2€). Beyond these metrics, XGBoost offers an ideal balance of robustness, scalability, and resistance to overfitting, making it the most reliable solution for this tabular dataset compared to the other architectures tested.
+Among the tested algorithms, XGBoost was selected as the final model. On the
+same 3,150 held-out rows, the two XGBoost scripts now agree:
+
+| | `src/train.py` (pipeline) | `models/tuning_XGBoost.py` (tuned) |
+|---|---:|---:|
+| R² (euros) | 0.7650 | **0.7908** |
+| RMSE | €188,753 | **€178,057** |
+| MAE | €85,768 | €89,256 |
+| MAPE | **20.90%** | 24.70% |
+| median APE | **15.10%** | 15.41% |
+
+They did not agree before, and reconciling them found a bug worth stating. The
+tuned script picked its features with `select_dtypes`, which swallowed every
+numeric column — including `price_per_m2`, which `cleaning.py` writes into
+`cleaned_data.json` as `price / livable_surface`. With `livable_surface` also a
+feature, the model could recover the answer as `price_per_m2 * livable_surface`,
+and scored R² 0.9066 with a 4.03% median error by doing so. On a real listing
+`price_per_m2` cannot be known without the price, so those figures measured
+arithmetic, not prediction. Dropping it costs R² 0.9066 → 0.7908 and median APE
+4.03% → 15.41%. `src/train.py` was never affected: it names its columns.
+
+**Every per-model script now carries the same guard.** `XGBoost.py`,
+`Random_Forest.py`, `Ramdom_Forest.py`, `linear_svr.py`, `linear_SVM.py`,
+`non_linear_svr.py`, `cross_validation_kNN_XGBoost.py` and
+`overfitting_XGBoost.py` all selected features with `select_dtypes` and none of
+them dropped the price-derived column; each one now does, and prints the column
+it dropped so a run says out loud what it removed. The drop is by derivation
+(any column whose name contains `price`), not by naming `price_per_m2`, so a
+future price-derived column cannot quietly reintroduce the leak. The Model
+Comparison table above was rebuilt from their output after the fix.
+
+`Ramdom_Forest.py` is a byte-identical copy of `Random_Forest.py`, and
+`linear_SVM.py` of `linear_svr.py` — the duplicates are kept in place but only
+one of each was run for the table.
+
+Beyond these metrics, XGBoost offers an ideal balance of robustness,
+scalability, and resistance to overfitting, making it the most reliable solution
+for this tabular dataset compared to the other architectures tested.
 
 This project also highlights the importance of reproducible preprocessing, modular code organization, and rigorous model evaluation. By combining Scikit-Learn Pipelines with modern ensemble learning techniques, the resulting workflow is accurate, reusable, and aligned with industry best practices.
 

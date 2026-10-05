@@ -1,10 +1,14 @@
 import pandas as pd
 import html
 import os
+from pathlib import Path
 
-INPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\raw\dataframe.json"
-OUTPUT_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "cleaned_data.json")
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+INPUT_FILE = BASE_DIR / "data" / "raw" / "dataframe.json"
+OUTPUT_DIR = BASE_DIR / "data" / "clean"
+OUTPUT_FILE = OUTPUT_DIR / "cleaned_data.json"
 
 def dataframe_cleaner(input_path, output_path):
     """

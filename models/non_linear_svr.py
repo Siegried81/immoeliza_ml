@@ -12,10 +12,14 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.svm import SVR
 from sklearn.decomposition import TruncatedSVD
+from pathlib import Path
 
-OUTPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json"
-MODEL_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\models"
-IMAGE_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\images"
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+MODEL_DIR = BASE_DIR / "models"
+IMAGE_DIR = BASE_DIR / "images"
 
 def display_metrics(y_test, y_pred, model_name="Model"):
     r2_test = r2_score(y_test, y_pred)
@@ -70,6 +74,17 @@ def run_non_linear_svr():
 
     X = df.drop(columns=["price", "address"], errors="ignore")
     y = df["price"]
+
+    # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
+    # into cleaned_data.json. With livable_surface also a feature, price is
+    # recoverable as price_per_m2 * livable_surface, which bought R2 0.91 and a 4%
+    # median error by doing arithmetic instead of predicting. Dropped by derivation,
+    # not by name, so a future price_* column cannot quietly reintroduce it.
+    # See README, "Model comparison", for the measured cost of removing it.
+    leaking = [c for c in X.columns if "price" in c.lower()]
+    if leaking:
+        print(f"Dropping features derived from the target: {leaking}")
+    X = X.drop(columns=leaking)
 
     num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
     cat_cols = X.select_dtypes(include=["object", "category", "string"]).columns.tolist()

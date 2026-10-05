@@ -7,6 +7,14 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from pathlib import Path
+
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+INPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+MODEL_DIR = BASE_DIR / "models"
+IMAGE_DIR = BASE_DIR / "images"
 
 
 def display_metrics(y_test, y_pred, model_name="Model"):
