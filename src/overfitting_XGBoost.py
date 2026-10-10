@@ -9,10 +9,16 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, root_mean_squared_error
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
 # Paths definition
-OUTPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json"
-MODEL_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\models"
+OUTPUT_FILE = paths.CLEAN_DATA
+MODEL_DIR = paths.MODEL_DIR
 
 
 def display_metrics(y_true, y_pred, title):

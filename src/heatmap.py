@@ -6,6 +6,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
 def get_preprocessor(num_cols, cat_cols):
     num_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='median')), 
@@ -16,7 +22,7 @@ def get_preprocessor(num_cols, cat_cols):
                                            ('cat', cat_transformer, cat_cols)])
 
 def run_preprocessing():
-    df = pd.read_json(r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json")
+    df = pd.read_json(paths.CLEAN_DATA)
     
     num_cols = ['postcode', 'latitude', 'longitude', 'price', 'build_year', 'bedroom_count', 
                 'livable_surface', 'total_surface', 'garage', 'terrace', 'swimming_pool', 

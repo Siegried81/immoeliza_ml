@@ -11,10 +11,16 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
-OUTPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json"
-MODEL_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\models"
-IMAGE_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\images"
+OUTPUT_FILE = paths.CLEAN_DATA
+MODEL_DIR = paths.MODEL_DIR
+IMAGE_DIR = paths.IMAGE_DIR
 
 
 def display_metrics(y_test, y_pred, model_name="Model"):
