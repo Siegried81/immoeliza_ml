@@ -1,9 +1,15 @@
 import pandas as pd
 import html
 import os
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
-INPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\raw\dataframe.json"
-OUTPUT_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean"
+INPUT_FILE = paths.RAW_DATA
+OUTPUT_DIR = paths.CLEAN_DIR
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "cleaned_data.json")
 
 def dataframe_cleaner(input_path, output_path):

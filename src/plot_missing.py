@@ -1,9 +1,15 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
-OUTPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json"
-PLOT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\missing_values_plot.png"
+OUTPUT_FILE = paths.CLEAN_DATA
+PLOT_FILE = paths.MISSING_VALUES_PLOT
 
 def plot_missing_values(file_path):
     df = pd.read_json(file_path)

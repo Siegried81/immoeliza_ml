@@ -2,9 +2,13 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import sys
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
 BASE_DIR = Path.cwd()
-PROJECT_ROOT = Path(r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml")
+PROJECT_ROOT = paths.PROJECT_ROOT
 MODEL_PATH = PROJECT_ROOT / "models" / "best_xgboost.joblib"
 INPUT_PATH = PROJECT_ROOT / "data" / "input" / "new_properties.json"
 

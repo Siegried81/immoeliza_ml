@@ -56,8 +56,8 @@ Before training the models, the dataset was cleaned and preprocessed to improve 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Siegried81/immo-eliza-ml.git
-cd immo-eliza-ml
+git clone https://github.com/Siegried81/immoeliza_ml.git
+cd immoeliza_ml
 ```
 
 ### 2. Create a virtual environment

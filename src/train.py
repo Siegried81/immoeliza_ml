@@ -7,10 +7,16 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 from xgboost import XGBRegressor
 from src.preprocessing import get_preprocessor 
+import sys
+from pathlib import Path
+# The repository root on sys.path, so `src.paths` resolves whether this file is
+# run through main.py or on its own.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import paths  # noqa: E402
 
-OUTPUT_FILE = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\data\clean\cleaned_data.json"
-MODEL_DIR = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\models"
-MODEL_PATH = r"D:\Users\Siegried\Desktop\Becode\immoeliza_ml\models\best_xgboost.joblib"
+OUTPUT_FILE = paths.CLEAN_DATA
+MODEL_DIR = paths.MODEL_DIR
+MODEL_PATH = paths.MODEL_PATH
 
 def train_xgboost():
     """
