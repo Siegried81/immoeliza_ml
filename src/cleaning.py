@@ -1,16 +1,14 @@
 import pandas as pd
 import html
 import os
-import sys
 from pathlib import Path
-# The repository root on sys.path, so `src.paths` resolves whether this file is
-# run through main.py or on its own.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import paths  # noqa: E402
 
-INPUT_FILE = paths.RAW_DATA
-OUTPUT_DIR = paths.CLEAN_DIR
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "cleaned_data.json")
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+INPUT_FILE = BASE_DIR / "data" / "raw" / "dataframe.json"
+OUTPUT_DIR = BASE_DIR / "data" / "clean"
+OUTPUT_FILE = OUTPUT_DIR / "cleaned_data.json"
 
 def dataframe_cleaner(input_path, output_path):
     """

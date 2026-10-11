@@ -1,15 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import sys
 from pathlib import Path
-# The repository root on sys.path, so `src.paths` resolves whether this file is
-# run through main.py or on its own.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import paths  # noqa: E402
 
-OUTPUT_FILE = paths.CLEAN_DATA
-PLOT_FILE = paths.MISSING_VALUES_PLOT
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+PLOT_FILE = BASE_DIR / "data" / "missing_values_plot.png"
 
 def plot_missing_values(file_path):
     df = pd.read_json(file_path)

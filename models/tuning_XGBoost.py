@@ -12,16 +12,14 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from xgboost import XGBRegressor
-import sys
 from pathlib import Path
-# The repository root on sys.path, so `src.paths` resolves whether this file is
-# run through main.py or on its own.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import paths  # noqa: E402
 
-OUTPUT_FILE = paths.CLEAN_DATA
-MODEL_DIR = paths.MODEL_DIR
-IMAGE_DIR = paths.IMAGE_DIR
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+MODEL_DIR = BASE_DIR / "models"
+IMAGE_DIR = BASE_DIR / "images"
 
 def get_preprocessor(num_cols, cat_cols):
     """
@@ -81,22 +79,36 @@ def train_xgboost(X_train, X_test, y_train, y_test, num_cols, cat_cols):
     best_model = search.best_estimator_
     y_pred = best_model.predict(X_test)
 
-    # Metrics
+    # Metrics, all on the euro scale: this script predicts price directly, so
+    # no inverse transform is needed (src/train.py trains on log1p and has to
+    # expm1 before measuring). MAPE is reported too, because a percentage is
+    # what a reader of these numbers actually compares across models - and the
+    # median absolute percentage error beside it, since MAPE is pulled up by
+    # cheap properties where a small euro error is a large share of the price.
     r2 = r2_score(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_test, y_pred)
+    ape = np.abs(np.asarray(y_test) - y_pred) / np.asarray(y_test) * 100
+    n_test = len(y_pred)
 
     print(f"Best Params: {search.best_params_}")
+    print(f"Held-out rows : {n_test:,}")
     print(f"R² Score : {r2:.4f}")
     print(f"MSE      : {mse:,.2f}")
     print(f"RMSE     : {rmse:,.2f}")
     print(f"MAE      : {mae:,.2f}")
+    print(f"MAPE     : {ape.mean():.2f} %  (median {np.median(ape):.2f} %)")
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
 
-    model_path = os.path.join(MODEL_DIR, "best_xgboost.joblib")
+    # Its own file: src/train.py writes best_xgboost.joblib, and the two fit
+    # different models (that one trains on log1p(price) and keeps `city`, this
+    # one trains on raw euros and drops every category with 50+ values). Sharing
+    # the path meant whichever ran last silently became "the" model, and the
+    # metrics quoted in the README depended on that order.
+    model_path = os.path.join(MODEL_DIR, "best_xgboost_tuned.joblib")
     joblib.dump(best_model, model_path)
 
     image_path = os.path.join(IMAGE_DIR, "xgboost_performance.png")
@@ -128,6 +140,21 @@ def run():
 
     num_cols = df.select_dtypes(include=['int64', 'float64']).columns.drop('price').tolist()
     cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+
+    # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
+    # into cleaned_data.json, and select_dtypes picks up every numeric column, so
+    # this script was handing the model a column computed FROM the answer. With
+    # livable_surface also a feature, price is recoverable as
+    # price_per_m2 * livable_surface. That is what produced R2 0.91 and a 4%
+    # median error against the honest pipeline's 0.77 and 15%: the score measured
+    # arithmetic, not prediction. On a real listing price_per_m2 is unknowable
+    # without the price. src/train.py never had this because it names its columns.
+    # Dropped by derivation, not by name, so a future price_* column cannot
+    # quietly reintroduce it.
+    leaking = [c for c in num_cols if 'price' in c.lower()]
+    if leaking:
+        print(f"Dropping features derived from the target: {leaking}")
+    num_cols = [c for c in num_cols if c not in leaking]
 
     cat_cols = [c for c in cat_cols if df[c].nunique() < 50]
 

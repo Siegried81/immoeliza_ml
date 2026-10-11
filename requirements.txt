@@ -1,81 +1,18 @@
-# --- Core ML & Data Processing ---
-joblib==1.5.3
-keras==3.15.0
-ml_dtypes==0.5.4
-narwhals==2.22.1
-numpy==2.4.6
-pandas==3.0.4
-scikit-learn==1.9.0
-scipy==1.17.1
-tensorflow==2.21.0
-xgboost==3.2.0
+# What the code actually imports, nothing else.
+#
+# This file used to be a 78-line `pip freeze` of a development machine: jupyter,
+# ipykernel, prompt_toolkit and a pinned tensorflow/keras that no module here
+# imports. tensorflow==2.21.0 does not resolve on a current Python either, so a
+# fresh `pip install -r requirements.txt` failed before a single test could run.
+# Versions are left unpinned on purpose: the pins above were a snapshot of one
+# machine, not a tested set.
+joblib
+matplotlib
+numpy
+pandas
+scikit-learn
+seaborn
+xgboost
 
-# --- Visualization & Utilities ---
-contourpy==1.3.3
-cycler==0.12.1
-fonttools==4.63.0
-graphviz==0.21
-kiwisolver==1.5.0
-matplotlib==3.11.0
-pillow==12.2.0
-pyparsing==3.3.2
-seaborn==0.13.2
-
-# --- Web, Networking & Data Handling ---
-absl-py==2.4.0
-astunparse==1.6.3
-certifi==2026.6.17
-charset-normalizer==3.4.7
-flatbuffers==25.12.19
-gast==0.7.0
-google-pasta==0.2.0
-grpcio==1.81.1
-h5py==3.14.0
-idna==3.18
-libclang==18.1.1
-opt_einsum==3.4.0
-optree==0.19.1
-protobuf==7.35.1
-requests==2.34.2
-six==1.17.0
-termcolor==3.3.0
-typing_extensions==4.15.0
-urllib3==2.7.0
-wrapt==2.2.2
-
-# --- Development, Jupyter & CLI Tools ---
-asttokens==3.0.1
-colorama==0.4.6
-comm==0.2.3
-debugpy==1.8.20
-decorator==5.3.1
-executing==2.2.1
-ipykernel==7.2.0
-ipython==9.13.0
-ipython_pygments_lexers==1.1.1
-jedi==0.20.0
-jupyter_client==8.8.0
-jupyter_core==5.9.1
-markdown-it-py==4.2.0
-matplotlib-inline==0.2.2
-mdurl==0.1.2
-namex==0.1.0
-nest-asyncio==1.6.0
-networkx==3.6.1
-packaging==26.2
-parso==0.8.7
-platformdirs==4.9.6
-prompt_toolkit==3.0.52
-psutil==7.2.2
-pure_eval==0.2.3
-Pygments==2.20.0
-python-dateutil==2.9.0.post0
-pyzmq==27.1.0
-rich==15.0.0
-stack-data==0.6.3
-tornado==6.5.5
-traitlets==5.15.0
-tzdata==2026.2
-wcwidth==0.7.0
 # Tests
-pytest>=8.0
+pytest

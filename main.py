@@ -10,26 +10,27 @@ from models.non_linear_svr import run_non_linear_svr
 from models.XGBoost import run_xgboost_pipeline
 from models.tuning_XGBoost import run as run_xgboost_tuning
 from models.cross_validation_kNN_XGBoost import run_knn
-from src import paths
 
 def main():
-    """The menu over the seven model scripts.
+    """
+    Interactive menu running one model pipeline per choice.
 
-    Each script builds its own preprocessor from the cleaned data, so the menu
-    passes nothing: it used to build one here and hand it to functions that
-    take no argument, one of which was imported under a name that did not
-    exist, so no option could run.
+    Every pipeline is self-contained: it loads the cleaned dataset and builds
+    the preprocessing its own feature selection needs (one-hot for the
+    distance-based models, ordinal for the tree-based ones), so the menu passes
+    no shared preprocessor. Failures are deliberately not caught: a broken
+    pipeline must show its traceback instead of a one-line message.
     """
     print("IMMOELIZA ML PREDICTION SYSTEM")
 
     menu = {
         "1": ("Linear Regression", run_linear_regression),
         "2": ("Random Forest", run_random_forest),
-        "3": ("Linear SVR", lambda: run_linearsvr_pipeline(paths.CLEAN_DATA)),
+        "3": ("Linear SVR", run_linearsvr_pipeline),
         "4": ("Non-Linear SVR", run_non_linear_svr),
         "5": ("XGBoost", run_xgboost_pipeline),
         "6": ("XGBoost Tuned", run_xgboost_tuning),
-        "7": ("Cross Validation kNN", run_knn),
+        "7": ("Cross Validation kNN", run_knn)
     }
 
     for key, (name, _) in menu.items():
@@ -42,10 +43,7 @@ def main():
         if choice in menu:
             name, function = menu[choice]
             print(f"Running: {name}...")
-            try:
-                function()
-            except Exception as e:
-                print(f"Error during execution: {e}")
+            function()
         elif choice == "8":
             print("Exiting. Goodbye!")
             break

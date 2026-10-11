@@ -29,9 +29,11 @@ def test_every_path_resolves_under_the_repository_or_the_override():
         assert value.is_relative_to(ROOT) or value.is_relative_to(paths.DATA_DIR), name
 
 
-def test_the_shipped_model_is_where_predict_looks_for_it():
-    """`models/best_xgboost.joblib` is committed; predict.py must find it from any cwd."""
-    assert paths.MODEL_PATH.exists()
+def test_the_model_path_is_inside_the_models_folder():
+    """Models are no longer committed (fix/target-leakage untracks them: they are
+    rebuilt by src/train.py), so the test checks where predict.py looks, not that
+    a file is already there."""
+    assert paths.MODEL_PATH.parent == ROOT / "models"
 
 
 def test_every_script_still_imports():
@@ -42,7 +44,9 @@ def test_every_script_still_imports():
     for path in list(ROOT.glob("src/*.py")) + list(ROOT.glob("models/*.py")):
         source = path.read_text(encoding="utf-8")
         compile(source, str(path), "exec")
-        if "paths." in source and path.name != "paths.py":
+        # The module's own attributes, not any word ending in "paths." (a
+        # comment in preprocessing.py tripped the plain substring check).
+        if re.search(r"paths\.[A-Z_]+", source) and path.name != "paths.py":
             assert "from src import paths" in source, path.name
 
 

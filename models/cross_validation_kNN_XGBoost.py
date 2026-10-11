@@ -12,16 +12,14 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.neighbors import KNeighborsRegressor
-import sys
 from pathlib import Path
-# The repository root on sys.path, so `src.paths` resolves whether this file is
-# run through main.py or on its own.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import paths  # noqa: E402
 
-OUTPUT_FILE = paths.CLEAN_DATA
-MODEL_DIR = paths.MODEL_DIR
-IMAGE_DIR = paths.IMAGE_DIR
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+MODEL_DIR = BASE_DIR / "models"
+IMAGE_DIR = BASE_DIR / "images"
 
 
 def get_preprocessor(num_cols, cat_cols):
@@ -110,14 +108,28 @@ def train_knn(X_train, X_test, y_train, y_test, num_cols, cat_cols):
     gc.collect()
 
 def run_knn():
-    """Load the cleaned listings, split them, and run the kNN cross-validation.
+    """
+    Loads the cleaned data, builds the train/test split and runs train_knn.
 
-    The split lives here rather than in main.py so the menu and a direct run of
-    this file train on exactly the same data.
+    Entry point with no argument, like the other model modules, so main.py can
+    call every pipeline the same way.
     """
     df = pd.read_json(OUTPUT_FILE).dropna(subset=['price'])
 
     num_cols = df.select_dtypes(include=['int64', 'float64']).columns.drop('price').tolist()
+
+    # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
+    # into cleaned_data.json. With livable_surface also a feature, price is
+    # recoverable as price_per_m2 * livable_surface, which bought R2 0.91 and a 4%
+    # median error by doing arithmetic instead of predicting. Dropped by derivation,
+    # not by name, so a future price_* column cannot quietly reintroduce it.
+    # See README, "Model comparison", for the measured cost of removing it.
+    leaking = [c for c in num_cols if "price" in c.lower()]
+    if leaking:
+        print(f"Dropping features derived from the target: {leaking}")
+    num_cols = [c for c in num_cols if c not in leaking]
+    # High-cardinality columns (city, address) would explode the one-hot matrix
+    # and make the distance metric meaningless for kNN.
     cat_cols = [c for c in df.select_dtypes(include=['object', 'category']).columns if df[c].nunique() < 50]
 
     X = df[num_cols + cat_cols]

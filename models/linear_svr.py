@@ -11,17 +11,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.svm import LinearSVR
-import sys
 from pathlib import Path
-# The repository root on sys.path, so `src.paths` resolves whether this file is
-# run through main.py or on its own.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import paths  # noqa: E402
 
 
-OUTPUT_FILE = paths.CLEAN_DATA
-MODEL_DIR = paths.MODEL_DIR
-IMAGE_DIR = paths.IMAGE_DIR
+# Paths are derived from this file's location, so the package runs
+# from any working directory and from any clone of the repository.
+BASE_DIR = Path(__file__).resolve().parents[1]
+OUTPUT_FILE = BASE_DIR / "data" / "clean" / "cleaned_data.json"
+MODEL_DIR = BASE_DIR / "models"
+IMAGE_DIR = BASE_DIR / "images"
 
 
 def display_metrics(y_test, y_pred, model_name="Model"):
@@ -87,19 +85,33 @@ def plot_actual_vs_predicted(y_test, y_pred, model_name="Model"):
     plt.show()
 
 
-def run_linearsvr_pipeline(file_path):
+def run_linearsvr_pipeline(file_path=None):
     """
     Loads dataset, preprocesses features, and trains a Linear SVR model.
     Performs hyperparameter tuning using RandomizedSearchCV.
     Evaluates performance, saves model, and exports visualization.
+
+    file_path defaults to the cleaned dataset so this can be called with no
+    argument, like the other model entry points driven by main.py.
     """
     os.makedirs(MODEL_DIR, exist_ok=True)
 
-    df = pd.read_json(file_path)
+    df = pd.read_json(file_path or OUTPUT_FILE)
     df = df.dropna(subset=["price"])
 
     X = df.drop(columns=["price", "address"], errors="ignore")
     y = df["price"]
+
+    # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
+    # into cleaned_data.json. With livable_surface also a feature, price is
+    # recoverable as price_per_m2 * livable_surface, which bought R2 0.91 and a 4%
+    # median error by doing arithmetic instead of predicting. Dropped by derivation,
+    # not by name, so a future price_* column cannot quietly reintroduce it.
+    # See README, "Model comparison", for the measured cost of removing it.
+    leaking = [c for c in X.columns if "price" in c.lower()]
+    if leaking:
+        print(f"Dropping features derived from the target: {leaking}")
+    X = X.drop(columns=leaking)
 
     cat_cols = X.select_dtypes(include=["object", "category", "string"]).columns.tolist()
     num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
@@ -172,4 +184,4 @@ def run_linearsvr_pipeline(file_path):
     
 
 if __name__ == "__main__":
-    run_linearsvr_pipeline(OUTPUT_FILE)
+    run_linearsvr_pipeline()
