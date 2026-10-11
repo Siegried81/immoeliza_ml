@@ -84,7 +84,7 @@ class TestPathsAreLocationIndependent:
     MODULES = [
         "src/cleaning.py", "src/heatmap.py", "src/overfitting_XGBoost.py",
         "src/plot_missing.py", "src/predict.py", "src/preprocessing.py", "src/train.py",
-        "models/XGBoost.py", "models/linear_regression.py", "models/linear_SVM.py",
+        "models/XGBoost.py", "models/linear_regression.py",
         "models/linear_svr.py", "models/non_linear_svr.py", "models/Random_Forest.py",
         "models/tuning_XGBoost.py", "models/cross_validation_kNN_XGBoost.py",
     ]
