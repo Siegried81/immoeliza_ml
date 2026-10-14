@@ -72,7 +72,10 @@ def plot_actual_vs_predicted(y_test, y_pred, model_name="Model"):
 def run_non_linear_svr():
     df = pd.read_json(OUTPUT_FILE).dropna(subset=["price"])
 
-    X = df.drop(columns=["price", "address"], errors="ignore")
+    # property_id is a listing number assigned by the website, not a property
+    # attribute: as a feature, the model learns which ID ranges were scraped
+    # from which search, which says nothing about a new listing.
+    X = df.drop(columns=["price", "address", "property_id"], errors="ignore")
     y = df["price"]
 
     # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface

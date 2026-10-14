@@ -156,7 +156,7 @@ pip install pytest
 pytest
 ```
 
-Expected: `29 passed`. The suite uses small in-memory frames only, so it needs
+Expected: `34 passed`. The suite uses small in-memory frames only, so it needs
 no dataset, no network, and trains nothing. It covers `get_preprocessor`,
 `remove_highly_correlated_features`, the absence of absolute path literals in
 every module, and the metric scale described below.
@@ -489,6 +489,8 @@ model, though XGBoost beats it on every metric here.
 | MAE    |   **€193,492** |
 
 The model failed to converge properly and performed very poorly, indicating misconfiguration and incompatibility with the dataset.
+It does not even fail the same way twice: a re-run on 14 October 2026 gave
+R² −29,446,188 (RMSE €2.1 billion). Read the row as "diverges", not as a value.
 
 ---
 
@@ -496,13 +498,13 @@ The model failed to converge properly and performed very poorly, indicating misc
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |    **0.4456** |
-| RMSE   |   **€289,885** |
-| MAE    |   **€128,259** |
+| R²     |    **0.4455** |
+| RMSE   |   **€289,905** |
+| MAE    |   **€128,272** |
 
 Despite dimensionality reduction (SVD) and tuning, the model remains far weaker
 than tree-based approaches - and, once the price-derived column is dropped, no
-better than plain Linear Regression (0.4456 against 0.4404).
+better than plain Linear Regression (0.4455 against 0.4404).
 
 ---
 
@@ -600,13 +602,13 @@ held-out properties are predicted within 10% of their price, and 62.9% within
 | Model                                      |         R² |        RMSE |        MAE | Conclusion                |
 | ------------------------------------------ | ---------: | ----------: | ---------: | ------------------------- |
 | Linear Regression                          |     0.4404 |    €290,384 |   €159,358 | Weak baseline             |
-| Non-Linear SVR (RBF)                       |     0.4456 |    €289,885 |   €128,259 | No better than linear     |
+| Non-Linear SVR (RBF)                       |     0.4455 |    €289,905 |   €128,272 | No better than linear     |
 | kNN (`cross_validation_kNN_XGBoost.py`)    |     0.6546 |    €228,816 |          — | Weak                      |
 | Random Forest                              |     0.7283 |    €202,930 |    €89,471 | Strong benchmark          |
 | XGBoost (`src/train.py` pipeline)          |     0.7650 |    €188,753 |    €85,768 | Best MAE                  |
-| XGBoost (`models/XGBoost.py`)              |     0.7835 |    €181,141 |    €86,440 | Ordinal encoding, 1,000 trees |
-| XGBoost tuned (`models/tuning_XGBoost.py`) | **0.7908** | **€178,057** |   €89,256 | Best final model          |
-| Linear SVR                                 |   −83.1243 |  €3,570,956 |   €193,492 | Failed to converge        |
+| XGBoost (`models/XGBoost.py`)              | **0.7956** | **€176,038** |    €80,451 | Ordinal encoding, 1,000 trees; best on all three |
+| XGBoost tuned (`models/tuning_XGBoost.py`) |     0.7908 |    €178,057 |   €89,256 | Tuned, one-hot encoding   |
+| Linear SVR                                 |        < 0 |           — |          — | Diverges (−83 to −29M between runs) |
 
 Every row comes from one run of that script on `data/clean/cleaned_data.json`
 (15,746 rows, the same 80/20 split, 3,150 held-out rows), with `price_per_m2`
@@ -615,8 +617,14 @@ dropped everywhere. Linear Regression is the exception: one feature
 MAE are all on the euro scale. R² and RMSE rank the models the same way; MAE
 does not quite, as the next paragraph shows.
 
-Read RMSE and MAE together. XGBoost tuned wins on R² and RMSE but has a *worse*
-MAE than the plain pipeline (€89,256 vs €85,768): tuning bought accuracy on the
+`models/XGBoost.py` used to feed `property_id`, the website's listing number,
+as an ordinal feature (R² 0.7835, MAE €86,440). Dropping it made the model
+better on every metric (R² 0.7956, MAE €80,451): the ID carried noise, not
+information. The tuned script already filtered high-cardinality columns, so
+its figures do not change.
+
+Read RMSE and MAE together. XGBoost tuned beats the plain pipeline on R² and
+RMSE but has a *worse* MAE (€89,256 vs €85,768): tuning bought accuracy on the
 expensive properties that dominate the squared error, and paid for it on the
 typical listing. `src/train.py` is the better choice if the median property
 matters more than the tail.

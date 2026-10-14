@@ -60,7 +60,8 @@ def run_xgboost_pipeline():
     # Load and filter data
     df = pd.read_json(OUTPUT_FILE).dropna(subset=['price'])
     df = df[df['price'] > 0]
-    X = df.drop(columns=['price', 'address'], errors='ignore')
+    # property_id is a listing number, not a property attribute.
+    X = df.drop(columns=['price', 'address', 'property_id'], errors='ignore')
     y = df['price']
 
     # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
