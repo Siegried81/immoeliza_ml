@@ -98,7 +98,7 @@ immoeliza_ml/
 ├── models/                             # one script per algorithm (.joblib files not versioned)
 │   ├── linear_regression.py
 │   ├── Random_Forest.py
-│   ├── linear_svr.py                   # same code as linear_SVM.py
+│   ├── linear_svr.py
 │   ├── non_linear_svr.py
 │   ├── XGBoost.py
 │   ├── tuning_XGBoost.py
@@ -110,11 +110,15 @@ immoeliza_ml/
 │   ├── predict.py                      # best_xgboost.joblib -> predictions.json
 │   ├── heatmap.py                      # correlation heatmap
 │   ├── plot_missing.py                 # missing-value bar chart
-│   └── overfitting_XGBoost.py          # train/test gap diagnostic
+│   ├── overfitting_XGBoost.py          # train/test gap diagnostic
+│   └── paths.py                        # data/model/image paths derived from the package root
 ├── tests/
+│   ├── test_paths.py                   # every module resolves paths from the package root
 │   └── test_preprocessing.py
+├── .github/workflows/tests.yml         # CI: pytest on every push and pull request
 ├── main.py                             # menu that runs one model pipeline
 ├── requirements.txt
+├── SECURITY.md
 └── .gitignore
 ```
 
@@ -152,7 +156,7 @@ pip install pytest
 pytest
 ```
 
-Expected: `25 passed`. The suite uses small in-memory frames only, so it needs
+Expected: `34 passed`. The suite uses small in-memory frames only, so it needs
 no dataset, no network, and trains nothing. It covers `get_preprocessor`,
 `remove_highly_correlated_features`, the absence of absolute path literals in
 every module, and the metric scale described below.
@@ -176,7 +180,7 @@ The dataset contained missing values in both numerical and categorical features.
 Instead of removing every incomplete row—which would significantly reduce the dataset size—missing values were imputed during preprocessing:
 
 - **Numerical features:** median imputation (`SimpleImputer(strategy="median")`)
-- **Categorical features:** most frequent value or constant category, depending on the feature
+- **Categorical features:** a constant `"missing"` category (`SimpleImputer(strategy="constant")`)
 
 This approach preserves as much information as possible while allowing every property to be processed by the models.
 
@@ -241,7 +245,7 @@ The analysis also showed a relatively strong relationship between **livable surf
 
 Another observation concerned the feature:
 
-`energy_consumption_kWh/m²/year`
+`energy_consumption_kWh/m2/year`
 
 This variable showed almost no correlation with the other numerical features. While this does not necessarily mean it is useless, it suggests that:
 
@@ -255,7 +259,7 @@ Rather than removing it immediately, it was kept for the machine learning models
 
 ## Why No Features Were Removed
 
-Since no pair of variables showed excessive multicollinearity, all available predictors were retained, except the address (useless) and the build year (43.4% of missing values).
+Since no pair of variables showed excessive multicollinearity, all available predictors were retained, except the address (useless) and `price_per_m2` (computed from the target, see the Conclusion). The build year is kept despite 38.4% of missing values: the median imputer fills it.
 
 An earlier `run_preprocessing()` in `src/preprocessing.py` wrote a
 `final_processed_data.csv` by keeping the columns whose correlation with
@@ -377,7 +381,7 @@ Thanks to this design, changing from Linear Regression to Random Forest or XGBoo
 
 To predict Belgian property prices, several regression algorithms were trained and evaluated. The goal was not only to obtain the highest prediction accuracy, but also to compare different machine learning approaches and understand their strengths and limitations.
 
-Each model was trained using the same train/test split and evaluated with identical performance metrics to ensure a fair comparison.
+Each model was trained using the same train/test split (`test_size=0.2`, `random_state=42`) and evaluated with identical performance metrics to ensure a fair comparison. The one exception is the Linear Regression baseline, which uses `livable_surface` alone and drops the rows where it is missing, so it is scored on 2,966 held-out rows instead of 3,150.
 
 ---
 
@@ -424,7 +428,7 @@ Again, lower values are better.
 
 Linear Regression was used as the baseline model because it is one of the simplest regression algorithms.
 
-It assumes a linear relationship between the input features and the property price.
+It assumes a linear relationship between the input features and the property price. Here it uses a single feature, `livable_surface`.
 
 ### Advantages
 
@@ -485,6 +489,8 @@ model, though XGBoost beats it on every metric here.
 | MAE    |   **€193,492** |
 
 The model failed to converge properly and performed very poorly, indicating misconfiguration and incompatibility with the dataset.
+It does not even fail the same way twice: a re-run on 14 October 2026 gave
+R² −29,446,188 (RMSE €2.1 billion). Read the row as "diverges", not as a value.
 
 ---
 
@@ -492,13 +498,13 @@ The model failed to converge properly and performed very poorly, indicating misc
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |    **0.4456** |
-| RMSE   |   **€289,885** |
-| MAE    |   **€128,259** |
+| R²     |    **0.4455** |
+| RMSE   |   **€289,905** |
+| MAE    |   **€128,272** |
 
 Despite dimensionality reduction (SVD) and tuning, the model remains far weaker
 than tree-based approaches - and, once the price-derived column is dropped, no
-better than plain Linear Regression (0.4456 against 0.4404).
+better than plain Linear Regression (0.4455 against 0.4404).
 
 ---
 
@@ -510,8 +516,7 @@ Best configuration:
 
 * `n_neighbors = 15`
 * `weights = distance`
-* `metric = euclidean`
-* log-transform applied on target variable
+* `metric = minkowski` (p=2, i.e. Euclidean)
 
 ### Results
 
@@ -535,20 +540,23 @@ XGBoost (Extreme Gradient Boosting) is a powerful ensemble method that builds tr
 Hyperparameters:
 
 ```text
-subsample = 0.9
-n_estimators = 500
-max_depth = 7
-learning_rate = 0.1
+subsample = 0.7
+n_estimators = 100
+max_depth = 11
+learning_rate = 0.05
 colsample_bytree = 0.8
 ```
+
+(read from the saved `models/best_xgboost_tuned.joblib`; `RandomizedSearchCV`
+picks them, so a re-run on other data can pick others)
 
 Performance:
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |    **0.7654** |
-| RMSE   | **≈ €66,237** |
-| MAE    | **≈ €47,521** |
+| R²     |    **0.7908** |
+| RMSE   | **≈ €178,057** |
+| MAE    | **≈ €89,256** |
 
 This tuned version represents one of the strongest configurations obtained during experimentation.
 
@@ -594,21 +602,29 @@ held-out properties are predicted within 10% of their price, and 62.9% within
 | Model                                      |         R² |        RMSE |        MAE | Conclusion                |
 | ------------------------------------------ | ---------: | ----------: | ---------: | ------------------------- |
 | Linear Regression                          |     0.4404 |    €290,384 |   €159,358 | Weak baseline             |
-| Non-Linear SVR (RBF)                       |     0.4456 |    €289,885 |   €128,259 | No better than linear     |
+| Non-Linear SVR (RBF)                       |     0.4455 |    €289,905 |   €128,272 | No better than linear     |
 | kNN (`cross_validation_kNN_XGBoost.py`)    |     0.6546 |    €228,816 |          — | Weak                      |
 | Random Forest                              |     0.7283 |    €202,930 |    €89,471 | Strong benchmark          |
 | XGBoost (`src/train.py` pipeline)          |     0.7650 |    €188,753 |    €85,768 | Best MAE                  |
-| XGBoost (`models/XGBoost.py`)              |     0.7835 |    €181,141 |    €86,440 | Same model, fewer columns |
-| XGBoost tuned (`models/tuning_XGBoost.py`) | **0.7908** | **€178,057** |   €89,256 | Best final model          |
-| Linear SVR                                 |   −83.1243 |  €3,570,956 |   €193,492 | Failed to converge        |
+| XGBoost (`models/XGBoost.py`)              | **0.7956** | **€176,038** |    €80,451 | Ordinal encoding, 1,000 trees; best on all three |
+| XGBoost tuned (`models/tuning_XGBoost.py`) |     0.7908 |    €178,057 |   €89,256 | Tuned, one-hot encoding   |
+| Linear SVR                                 |        < 0 |           — |          — | Diverges (−83 to −29M between runs) |
 
 Every row comes from one run of that script on `data/clean/cleaned_data.json`
 (15,746 rows, the same 80/20 split, 3,150 held-out rows), with `price_per_m2`
-dropped everywhere. So the table compares models, not preprocessing: R², RMSE and
-MAE are all on the euro scale and all rank the same way.
+dropped everywhere. Linear Regression is the exception: one feature
+(`livable_surface`), scored on the 2,966 held-out rows where it is present. So the table compares models, not preprocessing: R², RMSE and
+MAE are all on the euro scale. R² and RMSE rank the models the same way; MAE
+does not quite, as the next paragraph shows.
 
-Read RMSE and MAE together. XGBoost tuned wins on R² and RMSE but has a *worse*
-MAE than the plain pipeline (€89,256 vs €85,768): tuning bought accuracy on the
+`models/XGBoost.py` used to feed `property_id`, the website's listing number,
+as an ordinal feature (R² 0.7835, MAE €86,440). Dropping it made the model
+better on every metric (R² 0.7956, MAE €80,451): the ID carried noise, not
+information. The tuned script already filtered high-cardinality columns, so
+its figures do not change.
+
+Read RMSE and MAE together. XGBoost tuned beats the plain pipeline on R² and
+RMSE but has a *worse* MAE (€89,256 vs €85,768): tuning bought accuracy on the
 expensive properties that dominate the squared error, and paid for it on the
 typical listing. `src/train.py` is the better choice if the median property
 matters more than the tail.
@@ -689,8 +705,11 @@ corresponding script is run:
 - `non_linear_svr.joblib`
 - `best_knn.joblib`
 - `best_xgboost.joblib` (the final pipeline, from `src/train.py`)
+- `best_xgboost_tuned.joblib` (from `models/tuning_XGBoost.py`)
+- `xgboost_model.joblib` (from `src/overfitting_XGBoost.py`)
 
-Each file holds a full scikit-learn `Pipeline`, preprocessing included, so new
+Each file except `linear_regression.joblib` (a bare one-feature
+`LinearRegression`) holds the preprocessing and the model together, so new
 data goes through exactly the same transformations as the training data. There
 is no separate `preprocessing_pipeline.joblib`. These files are not versioned
 (see `.gitignore`): re-run the script that produces the one you need.
@@ -848,18 +867,13 @@ arithmetic, not prediction. Dropping it costs R² 0.9066 → 0.7908 and median A
 4.03% → 15.41%. `src/train.py` was never affected: it names its columns.
 
 **Every per-model script now carries the same guard.** `XGBoost.py`,
-`Random_Forest.py`, `Ramdom_Forest.py`, `linear_svr.py`, `linear_SVM.py`,
-`non_linear_svr.py`, `cross_validation_kNN_XGBoost.py` and
+`Random_Forest.py`, `linear_svr.py`, `non_linear_svr.py`, `cross_validation_kNN_XGBoost.py` and
 `overfitting_XGBoost.py` all selected features with `select_dtypes` and none of
 them dropped the price-derived column; each one now does, and prints the column
 it dropped so a run says out loud what it removed. The drop is by derivation
 (any column whose name contains `price`), not by naming `price_per_m2`, so a
 future price-derived column cannot quietly reintroduce the leak. The Model
 Comparison table above was rebuilt from their output after the fix.
-
-`Ramdom_Forest.py` is a byte-identical copy of `Random_Forest.py`, and
-`linear_SVM.py` of `linear_svr.py` — the duplicates are kept in place but only
-one of each was run for the table.
 
 Beyond these metrics, XGBoost offers an ideal balance of robustness,
 scalability, and resistance to overfitting, making it the most reliable solution

@@ -88,7 +88,10 @@ def run_xgboost_pipeline():
     df = df.dropna(subset=["price"])
     df = df[df["price"] > 0].copy()
 
-    X = df.drop(columns=["price", "address"], errors="ignore")
+    # property_id is a listing number assigned by the website, not a property
+    # attribute: as a feature, the model learns which ID ranges were scraped
+    # from which search, which says nothing about a new listing.
+    X = df.drop(columns=["price", "address", "property_id"], errors="ignore")
     y = df["price"]
 
     # Target leakage: cleaning.py persists price_per_m2 = price / livable_surface
