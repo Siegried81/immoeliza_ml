@@ -9,7 +9,7 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, QuantileTransformer
 from sklearn.svm import LinearSVR
 from pathlib import Path
 
@@ -85,6 +85,40 @@ def plot_actual_vs_predicted(y_test, y_pred, model_name="Model"):
     plt.show()
 
 
+def build_model(num_cols, cat_cols):
+    """Linear SVR on a log-price target, with numeric inputs mapped to quantiles.
+
+    A StandardScaler leaves outliers as outliers: one listing with an energy
+    consumption of 20 million kWh/m2/year sits 5,537 standard deviations out,
+    the linear model multiplies that by its coefficient in log space, and
+    expm1 turns it into a price of EUR 118 billion - which alone drove R2 to
+    -29 million. A quantile transform to a normal distribution bounds every
+    numeric input to the range seen in training, so no single extreme value can
+    push a prediction out of the market.
+    """
+    preprocessor = ColumnTransformer([
+        ("num", Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("quantile", QuantileTransformer(output_distribution="normal", n_quantiles=1000,
+                                             random_state=42))
+        ]), num_cols),
+
+        ("cat", Pipeline([
+            ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
+            ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ]), cat_cols)
+    ])
+
+    return TransformedTargetRegressor(
+        regressor=Pipeline([
+            ("prep", preprocessor),
+            ("svr", LinearSVR(dual="auto", random_state=42, max_iter=50000))
+        ]),
+        func=np.log1p,
+        inverse_func=np.expm1
+    )
+
+
 def run_linearsvr_pipeline(file_path=None):
     """
     Loads dataset, preprocesses features, and trains a Linear SVR model.
@@ -119,26 +153,7 @@ def run_linearsvr_pipeline(file_path=None):
     cat_cols = X.select_dtypes(include=["object", "category", "string"]).columns.tolist()
     num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
 
-    preprocessor = ColumnTransformer([
-        ("num", Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler())
-        ]), num_cols),
-
-        ("cat", Pipeline([
-            ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
-            ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-        ]), cat_cols)
-    ])
-
-    model = TransformedTargetRegressor(
-        regressor=Pipeline([
-            ("prep", preprocessor),
-            ("svr", LinearSVR(dual="auto", random_state=42, max_iter=50000))
-        ]),
-        func=np.log1p,
-        inverse_func=np.expm1
-    )
+    model = build_model(num_cols, cat_cols)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
