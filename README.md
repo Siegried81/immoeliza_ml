@@ -156,7 +156,7 @@ pip install pytest
 pytest
 ```
 
-Expected: `34 passed`. The suite uses small in-memory frames only, so it needs
+Expected: `36 passed`. The suite uses small in-memory frames only, so it needs
 no dataset, no network, and trains nothing. It covers `get_preprocessor`,
 `remove_highly_correlated_features`, the absence of absolute path literals in
 every module, and the metric scale described below.
@@ -484,13 +484,19 @@ model, though XGBoost beats it on every metric here.
 
 | Metric |         Value |
 | ------ | ------------: |
-| R²     |  **−83.1243** |
-| RMSE   | **€3,570,956** |
-| MAE    |   **€193,492** |
+| R²     |    **0.6624** |
+| RMSE   |   **€226,231** |
+| MAE    |    **€97,150** |
 
-The model failed to converge properly and performed very poorly, indicating misconfiguration and incompatibility with the dataset.
-It does not even fail the same way twice: a re-run on 14 October 2026 gave
-R² −29,446,188 (RMSE €2.1 billion). Read the row as "diverges", not as a value.
+Log-price target, numeric inputs mapped to quantiles (`QuantileTransformer`
+to a normal distribution), one-hot categories. With a `StandardScaler` instead,
+the model did not converge to anything usable: R² −83, then −29 million on a
+re-run. The cause was not the solver but a handful of data-entry outliers
+(an energy consumption of 20 million kWh/m²/year sits 5,537 standard
+deviations out; one listing has 100 bedrooms). A linear model on a log target
+extrapolates them exponentially, up to a predicted price of €118 billion. The
+quantile transform bounds every input to the range seen in training, and
+`tests/test_linear_svr.py` prices such a row to check it.
 
 ---
 
@@ -608,7 +614,7 @@ held-out properties are predicted within 10% of their price, and 62.9% within
 | XGBoost (`src/train.py` pipeline)          |     0.7650 |    €188,753 |    €85,768 | Best MAE                  |
 | XGBoost (`models/XGBoost.py`)              | **0.7956** | **€176,038** |    €80,451 | Ordinal encoding, 1,000 trees; best on all three |
 | XGBoost tuned (`models/tuning_XGBoost.py`) |     0.7908 |    €178,057 |   €89,256 | Tuned, one-hot encoding   |
-| Linear SVR                                 |        < 0 |           — |          — | Diverges (−83 to −29M between runs) |
+| Linear SVR (quantile-transformed inputs)   |     0.6624 |    €226,231 |    €97,150 | Beats Linear Regression and RBF SVR |
 
 Every row comes from one run of that script on `data/clean/cleaned_data.json`
 (15,746 rows, the same 80/20 split, 3,150 held-out rows), with `price_per_m2`
@@ -645,7 +651,7 @@ Too simplistic to capture interactions between variables influencing real estate
 
 ### SVR
 
-* Linear SVR failed to converge
+* Linear SVR diverged on outliers until its inputs were quantile-transformed (R² 0.6624)
 * RBF SVR improved but remained less accurate and computationally expensive
 
 ### kNN
