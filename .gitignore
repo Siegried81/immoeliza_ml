@@ -26,3 +26,7 @@ models/*.joblib
 models/*.json
 models/*.png
 images/
+
+# MLflow experiment tracking: the local file store written by
+# scripts/track_training.py. Regenerated per run and tied to library versions.
+mlruns/
