@@ -156,10 +156,11 @@ pip install pytest
 pytest
 ```
 
-Expected: `36 passed`. The suite uses small in-memory frames only, so it needs
+Expected: `39 passed`. The suite uses small in-memory frames only, so it needs
 no dataset, no network, and trains nothing. It covers `get_preprocessor`,
 `remove_highly_correlated_features`, the absence of absolute path literals in
-every module, and the metric scale described below.
+every module, the metric scale described below, and the MLflow tracking harness
+(params, metrics and the best-run tag on a throwaway file store).
 
 # Data Preparation & Preprocessing
 

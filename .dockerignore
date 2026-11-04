@@ -1,0 +1,10 @@
+.git
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+# Trained model artifacts are rebuilt inside the container. Don't exclude
+# models/ itself: it holds the pipeline code main.py imports.
+*.pkl
+*.joblib

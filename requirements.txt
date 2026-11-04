@@ -8,6 +8,7 @@
 # machine, not a tested set.
 joblib
 matplotlib
+mlflow          # experiment tracking (scripts/track_training.py); local file store, no server
 numpy
 pandas
 scikit-learn
