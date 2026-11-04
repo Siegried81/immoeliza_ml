@@ -65,10 +65,13 @@ _NON_FEATURES = ["price", "address", "property_id"]
 
 
 def _load_dataframe(data_path):
-    """Load the cleaned listings and apply the same row filter the pipelines use.
+    """Load the cleaned listings and drop rows that cannot train or score a
+    regressor: no price, or a non-positive one.
 
-    Rows without a price, or with a non-positive one, cannot train or score a
-    regressor, so they are dropped here exactly as each `run_*` function does.
+    The price>0 drop is the one `run_xgboost_pipeline` and `run_random_forest`
+    make; the other pipelines drop only null prices. Applying it to every model
+    here is a harmless strictening, since a non-positive price is not a
+    trainable target.
     """
     df = pd.read_json(data_path)
     df = df.dropna(subset=["price"])
