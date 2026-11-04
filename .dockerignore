@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 venv/
 .env
+.pytest_cache/
+# MLflow file store: written by scripts/track_training.py, never an input.
+mlruns/
 # Trained model artifacts are rebuilt inside the container. Don't exclude
 # models/ itself: it holds the pipeline code main.py imports.
 *.pkl

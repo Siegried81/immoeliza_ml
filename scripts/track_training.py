@@ -1,9 +1,12 @@
 """Non-interactive entry point for MLflow experiment tracking.
 
-main.py is an interactive menu, so it cannot be used in CI or a scheduled run.
+main.py is a menu that waits for a keypress, so CI can't run it.
 This script is the headless counterpart: it trains the comparison regressors
 and records each one to a local MLflow file store under `mlruns/`. No server,
-no network. Open the results afterwards with `mlflow ui` pointed at that folder.
+no network. Open the results afterwards with
+`MLFLOW_ALLOW_FILE_STORE=true mlflow ui --backend-store-uri file:./mlruns`
+(MLflow 3 refuses a file store without that flag; the script sets it for
+itself only).
 
     python scripts/track_training.py
     python scripts/track_training.py --models xgboost random_forest
@@ -27,7 +30,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--data", default=None,
-        help="Path to the cleaned listings JSON (defaults to data/clean/cleaned_data.json).",
+        help="Path to the cleaned listings JSON (defaults to src/paths.CLEAN_DATA, "
+             "i.e. data/clean/cleaned_data.json unless IMMOELIZA_DATA_DIR is set).",
     )
     parser.add_argument(
         "--tracking-uri", default=None,

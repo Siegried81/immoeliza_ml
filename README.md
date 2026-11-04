@@ -53,6 +53,8 @@ Before training the models, the dataset was cleaned and preprocessed to improve 
 
 ## Installation
 
+Python 3.12 (what CI and the Dockerfile use).
+
 ### 1. Clone the repository
 
 ```bash
@@ -95,6 +97,7 @@ immoeliza_ml/
 │   ├── input/new_properties.json       # properties to predict
 │   └── output/predictions.json         # produced by src/predict.py
 ├── images/                             # not versioned: plots from the models
+├── mlruns/                             # not versioned: MLflow file store
 ├── models/                             # one script per algorithm (.joblib files not versioned)
 │   ├── linear_regression.py
 │   ├── Random_Forest.py
@@ -103,20 +106,28 @@ immoeliza_ml/
 │   ├── XGBoost.py
 │   ├── tuning_XGBoost.py
 │   └── cross_validation_kNN_XGBoost.py
+├── scripts/
+│   └── track_training.py               # headless MLflow run of the four regressors
 ├── src/
 │   ├── cleaning.py                     # raw JSON -> cleaned_data.json
 │   ├── preprocessing.py                # the shared ColumnTransformer
 │   ├── train.py                        # final XGBoost pipeline -> best_xgboost.joblib
 │   ├── predict.py                      # best_xgboost.joblib -> predictions.json
+│   ├── mlflow_tracking.py              # trains and logs params/metrics/models to mlruns/
 │   ├── heatmap.py                      # correlation heatmap
 │   ├── plot_missing.py                 # missing-value bar chart
 │   ├── overfitting_XGBoost.py          # train/test gap diagnostic
 │   └── paths.py                        # data/model/image paths derived from the package root
 ├── tests/
+│   ├── test_features.py
+│   ├── test_linear_svr.py
+│   ├── test_mlflow_tracking.py
 │   ├── test_paths.py                   # every module resolves paths from the package root
 │   └── test_preprocessing.py
 ├── .github/workflows/tests.yml         # CI: pytest on every push and pull request
 ├── main.py                             # menu that runs one model pipeline
+├── Dockerfile
+├── .dockerignore
 ├── requirements.txt
 ├── SECURITY.md
 └── .gitignore
@@ -149,6 +160,33 @@ cleaned dataset and builds the preprocessing its own feature selection needs,
 so the menu passes nothing to it. Failures are not caught: a broken pipeline
 shows its traceback instead of a one-line message.
 
+### Tracking runs with MLflow
+
+```bash
+python scripts/track_training.py                   # all four: linear_regression, random_forest, linear_svr, xgboost
+python scripts/track_training.py --models xgboost
+MLFLOW_ALLOW_FILE_STORE=true mlflow ui --backend-store-uri file:./mlruns
+```
+
+Each run logs its params, euro-scale R², MAE, RMSE, MAPE and median APE, and
+the fitted model, to `mlruns/` (not versioned). The best run by test R² gets
+the tag `best_model=true`. Linear regression, random forest and XGBoost
+reproduce the table above to the digit. `linear_svr` doesn't: it's logged with
+LinearSVR's defaults (C=1, epsilon=0), not the randomized search the menu runs,
+so expect a lower R² than 0.6624. MLflow 3 refuses to open a file store without
+`MLFLOW_ALLOW_FILE_STORE=true`; the script sets it for itself only.
+
+### Docker
+
+```bash
+docker build -t immoeliza-ml .
+docker run --rm -it immoeliza-ml
+```
+
+The image is python:3.12-slim with libgomp1 (xgboost needs it). `main.py`
+reads your keypresses, so `-it` is required. `data/` is copied into the image
+if it's there; otherwise mount it with `-v "$PWD/data:/app/data"`.
+
 ### Tests
 
 ```bash
@@ -156,11 +194,12 @@ pip install pytest
 pytest
 ```
 
-Expected: `39 passed`. The suite uses small in-memory frames only, so it needs
-no dataset, no network, and trains nothing. It covers `get_preprocessor`,
-`remove_highly_correlated_features`, the absence of absolute path literals in
-every module, the metric scale described below, and the MLflow tracking harness
-(params, metrics and the best-run tag on a throwaway file store).
+Expected: `39 passed`. The suite needs no dataset and no network: it builds
+small synthetic frames in memory, and the MLflow test fits the four regressors
+on 80 rows against a throwaway file store in a temp dir. It covers
+`get_preprocessor`, `remove_highly_correlated_features`, the absence of
+absolute path literals in every module, the metric scale described below, and
+the MLflow tracking (params, metrics, best-run tag, on a temp file store).
 
 # Data Preparation & Preprocessing
 
@@ -785,6 +824,7 @@ This project was developed using the following Python libraries:
 | Scikit-Learn | Preprocessing, pipelines and machine learning |
 | XGBoost | Gradient Boosting model |
 | Joblib | Saving and loading trained models |
+| MLflow | Experiment tracking on a local file store |
 
 ---
 

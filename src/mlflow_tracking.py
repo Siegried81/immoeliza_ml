@@ -13,7 +13,7 @@ Reuse, not rewrite: the estimator builders that the pipelines already expose as
 functions are imported and used as-is (`models.linear_svr.build_model`,
 `models.Random_Forest.get_preprocessor`). Linear regression and XGBoost build
 their estimator inline inside their `run_*` function, so there is nothing to
-import; those two are reconstructed here with the SAME configuration, and the
+import; those two are reconstructed here with the same configuration, and the
 originating module is named in a comment so the two stay in step. The model
 `run_*` functions are left untouched.
 """
@@ -58,9 +58,9 @@ DEFAULT_MLRUNS_DIR = PROJECT_ROOT / "mlruns"
 # pipelines only ever need these few packages to unpickle and predict.
 _MODEL_REQUIREMENTS = ["scikit-learn", "xgboost", "numpy", "pandas", "cloudpickle"]
 
-# Columns that are never model inputs. price is the target; price_per_m2 is
-# price / livable_surface and leaks it; property_id is a listing number and
-# address is free text. This mirrors the drops the pipelines already make.
+# Columns that are never model inputs: price is the target, property_id is a
+# listing number and address is free text. Price-derived columns (price_per_m2)
+# are dropped separately, by name derivation, in _split_features.
 _NON_FEATURES = ["price", "address", "property_id"]
 
 
@@ -83,8 +83,8 @@ def _split_features(df):
     """Return (X, y, num_cols, cat_cols) for the full-feature models.
 
     The leakage drop is done by derivation, not by a fixed name list, so a
-    future `price_*` column cannot silently reappear as a feature. This repeats
-    the rule the pipelines document; it is kept in one place here on purpose.
+    future `price_*` column cannot silently reappear as a feature. Same rule as
+    the pipelines, kept in one place.
     """
     X = df.drop(columns=_NON_FEATURES, errors="ignore")
     leaking = [c for c in X.columns if "price" in c.lower()]
@@ -115,6 +115,9 @@ def _build_linear_regression(df):
 def _build_random_forest(df):
     """Random forest on a log-price target, reusing the preprocessor factory
     from models/Random_Forest.py so the encoding stays identical."""
+    # Feature selection mirrors models/Random_Forest.py and doesn't use
+    # _NON_FEATURES: property_id and address are strings, so select_dtypes
+    # on numbers never picks them, and the fixed cat_cols list never names them.
     cat_cols = ["property_type", "city", "province", "property_state", "nearest_city"]
     num_cols = df.select_dtypes(include=[np.number]).columns.drop("price").tolist()
     num_cols = [c for c in num_cols if "price" not in c.lower()]
@@ -129,7 +132,8 @@ def _build_random_forest(df):
         func=np.log,
         inverse_func=np.exp,
     )
-    params = {"n_estimators": 100, "random_state": 42}
+    rf = estimator.regressor.named_steps["rf"]
+    params = {"n_estimators": rf.n_estimators, "random_state": rf.random_state}
     return X, y, estimator, params
 
 
@@ -140,7 +144,8 @@ def _build_linear_svr(df):
     The defaults that train are what gets logged."""
     X, y, num_cols, cat_cols = _split_features(df)
     estimator = build_linear_svr(num_cols, cat_cols)
-    params = {"C": 1.0, "epsilon": 0.0, "tuned": False}
+    svr = estimator.regressor.named_steps["svr"]
+    params = {"C": svr.C, "epsilon": svr.epsilon, "tuned": False}
     return X, y, estimator, params
 
 
@@ -169,14 +174,15 @@ def _build_xgboost(df):
             inverse_func=np.expm1,
         )),
     ])
-    params = {"n_estimators": 1000, "learning_rate": 0.05, "max_depth": 6, "random_state": 42}
+    booster = estimator.named_steps["model"].regressor
+    params = {k: getattr(booster, k) for k in ("n_estimators", "learning_rate", "max_depth", "random_state")}
     return X, y, estimator, params
 
 
-# Registry of the regressors compared in one tracking session. Ordered so the
-# cheapest run first. kNN / tuned-XGBoost / non-linear SVR from the menu are
-# left out on purpose: they wrap a cross-validated search (and the non-linear
-# SVR a 100-component SVD), which is a search to track, not a single regressor.
+# Registry of the regressors compared in one tracking session. Cheapest first.
+# kNN / tuned-XGBoost / non-linear SVR from the menu are left out on purpose:
+# they wrap a cross-validated search (and the non-linear SVR a 100-component
+# SVD), which is a search to track, not a single regressor.
 MODEL_BUILDERS = {
     "linear_regression": _build_linear_regression,
     "random_forest": _build_random_forest,
@@ -186,7 +192,9 @@ MODEL_BUILDERS = {
 
 
 def _evaluate(y_true, y_pred):
-    """Metrics on the real euro scale, matching how the pipelines report.
+    """Metrics on the real euro scale, the scale the pipelines print. MSE is
+    left out (RMSE carries it); MAPE and its median are added because
+    src/train.py reports them and the README reads them together.
 
     R2 on a log target is a different, more flattering number; every metric
     here is computed on euros so runs are comparable to the printed output and
@@ -284,6 +292,9 @@ def track_models(
             })
 
     # Best run by test R2, tagged in place so the winner is findable in the UI.
+    # Picked on the test split, like the README's comparison table: there is no
+    # separate validation set, so the winner's R2 is a slightly optimistic
+    # estimate.
     best = max(runs, key=lambda r: r["metrics"]["r2"]) if runs else None
     if best is not None:
         client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
