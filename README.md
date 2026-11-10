@@ -663,6 +663,28 @@ dropped everywhere. Linear Regression is the exception: one feature
 MAE are all on the euro scale. R² and RMSE rank the models the same way; MAE
 does not quite, as the next paragraph shows.
 
+**What these R² figures measure.** They're test scores: the 3,150 held-out
+rows of the 80/20 split (`random_state=42`). No model was fitted, early-stopped
+or tuned on them. The tuned scripts (`tuning_XGBoost.py`, `linear_svr.py`,
+`non_linear_svr.py`, the kNN script) run `RandomizedSearchCV` with 3-fold CV on
+the training rows only, and `XGBoost.py` uses fixed settings with no early
+stopping. One caveat: every model in the table is scored on the same 3,150
+rows and the best one was picked by looking at them, so the top score is a bit
+flattering. A fresh test split, never used to compare models, would be the
+clean version.
+
+These are not the deployed model's figures. The service in
+[immo-eliza-deployment](https://github.com/Siegried81/immo-eliza-deployment)
+uses a different pipeline (clipped log target, target encoding, luxury
+routing) and reports its own scores on a sealed test split there.
+
+They also move with library versions, since `requirements.txt` isn't pinned.
+Re-run on 2026-11-10 (Linux, python 3.12, xgboost 3.2.0, scikit-learn 1.9.0):
+`XGBoost.py` gives R² 0.7881 with pandas 2.3.3 and 0.7749 with pandas 3.1.1
+(the table says 0.7956), and `tuning_XGBoost.py` gives 0.7886 with either
+(the table says 0.7908; the search also picks other parameters). See
+`docs/decisions.md`.
+
 `models/XGBoost.py` used to feed `property_id`, the website's listing number,
 as an ordinal feature (R² 0.7835, MAE €86,440). Dropping it made the model
 better on every metric (R² 0.7956, MAE €80,451): the ID carried noise, not

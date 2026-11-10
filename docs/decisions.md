@@ -3,6 +3,37 @@
 Dated record of choices that change what a number means or how it's measured.
 Newest first.
 
+## 2026-11-10: what the R² figures measure, and they don't reproduce exactly
+
+**What.** The README now says what its R² figures are: test scores on the
+3,150 held-out rows of the 80/20 split (`random_state=42`). It also says they
+aren't the deployed model's figures and that they drift with library versions.
+
+**Why.** The question was whether those rows also served tuning. They don't:
+every randomized search runs 3-fold CV on the training rows only, and
+`XGBoost.py` has fixed settings and no early stopping. The one weak spot is
+model selection: eight models are compared on the same 3,150 rows and the best
+is picked there, so the top score is a bit flattering. The R² 0.79 (0.7956 and
+0.7908) also kept being quoted as the deployed service's score. It isn't: the
+service in immo-eliza-deployment is a different pipeline, with R² 0.646 for
+its standard model on its own sealed test split (2026-11-10).
+
+**What it means for the numbers.** Re-run on 2026-11-10 in python:3.12 Linux
+with xgboost 3.2.0 and scikit-learn 1.9.0, same data (15,746 rows):
+
+| Script | README | pandas 2.3.3 | pandas 3.1.1 |
+|---|---:|---:|---:|
+| `models/XGBoost.py` | 0.7956 | 0.7881 | 0.7749 |
+| `models/tuning_XGBoost.py` | 0.7908 | 0.7886 | 0.7886 |
+
+Python 3.14 on Windows gives the same 0.7881 and 0.7749 for `XGBoost.py`. The
+tuned search now picks `n_estimators=200, max_depth=7, learning_rate=0.1,
+subsample=0.9, colsample_bytree=0.7`, not the parameters in the README. The
+table wasn't rebuilt: the README keeps the measured figures and says they move.
+
+**Revisit if.** `requirements.txt` gets pinned. Then rebuild the table once
+and the figures stop moving.
+
 ## 2026-11-04 — MLflow tracking logs linear_svr untuned
 
 **What.** `src/mlflow_tracking.py` fits `linear_svr` with LinearSVR's defaults
